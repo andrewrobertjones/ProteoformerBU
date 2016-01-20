@@ -27,6 +27,8 @@ public class ProteoformerBU {
     private HashMap<String,String> pepToProtAcc = new HashMap();
     private HashMap<String,ArrayList<String>> protToPeps = new HashMap();
     
+    //Test comment in here
+    
     
     /**
      * @param args the command line arguments
