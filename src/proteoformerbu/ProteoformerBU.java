@@ -7,10 +7,13 @@
 package proteoformerbu;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+
+import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
 /**
  *
@@ -41,7 +44,12 @@ public class ProteoformerBU {
         pbu.readPepData(maxQuantFile);
         pbu.computeProtQuantValues();
         //pbu.printProtQuantValue();
-        pbu.normaliseProtQuantValues();
+        
+        //Not currently used
+        //pbu.normaliseProtQuantValues();
+        
+        pbu.createPeptideCorrelations();
+        
     }
     
     /*
@@ -152,20 +160,41 @@ public class ProteoformerBU {
         
         for(String protAcc : allProtQuantData.keySet()){
             BigInteger[] protQuantValues = allProtQuantData.get(protAcc);
-            for(int i=0;i<protQuantValues.length;i++){    
-                totalProteinAbundances[i].add(protQuantValues[i]);
-            }
             
+            for(int i=0;i<protQuantValues.length;i++){  
+                totalProteinAbundances[i] = totalProteinAbundances[i].add(protQuantValues[i]);
+            }
         }
         
+        /*
         for(BigInteger total : totalProteinAbundances){
             System.out.print(total + "\t");
        }
         System.out.println("");
         
-        int medianPos = medianPositionInArray(totalProteinAbundances);
-        System.out.println("middlepos:" + medianPos + " value:" + totalProteinAbundances[medianPos].intValue());
+        */
         
+        int medianPos = medianPositionInArray(totalProteinAbundances);
+        //System.out.println("middlepos:" + medianPos + " value:" + totalProteinAbundances[medianPos].intValue());
+        
+        double[] normalisationFactors = new double [intensityColumns.size()];
+        for(int i=0;i<normalisationFactors.length;i++){
+            BigInteger medianAbundance = totalProteinAbundances[medianPos];
+            normalisationFactors[i]=totalProteinAbundances[i].doubleValue()/totalProteinAbundances[medianPos].doubleValue();            
+        }
+        //System.out.println(Arrays.toString(normalisationFactors));
+        
+
+        //Second loop to create normalised values
+        for(String protAcc : allProtQuantData.keySet()){
+            BigInteger[] protQuantValues = allProtQuantData.get(protAcc);
+            BigInteger[] normProtQuantValues = new BigInteger[protQuantValues.length];
+            for(int i=0;i<protQuantValues.length;i++){                  
+                BigInteger normalisedProtQuant = new BigDecimal(protQuantValues[i].doubleValue() * normalisationFactors[i]).toBigInteger();
+                normProtQuantValues[i]=normalisedProtQuant;
+            }
+            allNormProtQuantData.put(protAcc,normProtQuantValues);
+        }      
     }
     
     
@@ -193,6 +222,61 @@ public class ProteoformerBU {
             System.out.print("\n");
         }
         
+    }
+    
+    /*
+    * Within each protein:
+    *
+    * Perform n * n-1 correlations on all peptides within the set
+    * Put into a matrix structure
+    */
+    private void createPeptideCorrelations(){
+        
+        /* This code does regular doubles, alternative code computes pepQuants as proportion of protein abundance
+        HashMap<String,double[]> pepQuantsAsDoubles = new HashMap();
+        for(String pep : allPepQuantData.keySet()){
+            ArrayList<BigInteger> pepValues = allPepQuantData.get(pep);
+            double[] doubleValues = new double[pepValues.size()];
+            for(int i=0; i<pepValues.size();i++){
+                doubleValues[i] = pepValues.get(i).doubleValue();
+            }
+            pepQuantsAsDoubles.put(pep, doubleValues);
+        }
+        */
+        
+        HashMap<String,double[]> pepQuantsAsDoubles = new HashMap();
+        for(String pep : allPepQuantData.keySet()){
+            String protAcc = pepToProtAcc.get(pep);            
+            ArrayList<BigInteger> pepValues = allPepQuantData.get(pep);
+            double[] doubleValues = new double[pepValues.size()];
+            for(int i=0; i<pepValues.size();i++){
+                double totalProtAbundance = allProtQuantData.get(protAcc)[i].doubleValue();
+                doubleValues[i] = pepValues.get(i).doubleValue()/totalProtAbundance;
+                
+            }
+            pepQuantsAsDoubles.put(pep, doubleValues);
+        }
+        
+        
+        for(String protAcc : protToPeps.keySet()){
+            System.out.print(protAcc + " ");
+            ArrayList<String> peps = protToPeps.get(protAcc);
+            for(int i=0;i<peps.size()-1;i++){   //outer loop
+                String outerPep = peps.get(i);
+                double[] outerPepVals = pepQuantsAsDoubles.get(outerPep);
+                 
+                for(int j=i+1;j<peps.size();j++){
+                    String innerPep = peps.get(j);
+                    double[] innerPepVals = pepQuantsAsDoubles.get(innerPep);
+                    PearsonsCorrelation pCorr = new PearsonsCorrelation();
+                    double corr = pCorr.correlation(outerPepVals, innerPepVals);
+                    System.out.print("Outer:" + outerPep + " inner: " + innerPep + " corr: " + corr + "   ");                     
+                 }
+                System.out.println();
+                
+            }
+            
+        }
     }
     
     
