@@ -29,6 +29,7 @@ public class ProteoformerBU {
     private HashMap<String,BigInteger[]> allNormProtQuantData = new HashMap();  //map from prot accession to normalised total abundance for each column
     private HashMap<String,String> pepToProtAcc = new HashMap();
     private HashMap<String,ArrayList<String>> protToPeps = new HashMap();
+    private HashMap<String,String[][]> protAccToDistanceMatrix = new HashMap();
     
     //Test comment in here
     
@@ -261,21 +262,39 @@ public class ProteoformerBU {
         for(String protAcc : protToPeps.keySet()){
             System.out.print(protAcc + " ");
             ArrayList<String> peps = protToPeps.get(protAcc);
-            for(int i=0;i<peps.size()-1;i++){   //outer loop
+            
+            String[] headerRow = new String[peps.size()];
+            String[][] matrix = new String[peps.size()][peps.size()];
+            
+            /*
+            Prepare String matrix for R as follows:
+            ASGQAFELILSPR_Phospho_STY	ASGQAFELILSPR_2Phospho_STY	RASGQAFELILSPR_2Phospho_STY	RASGQAFELILSPR_Phospho_STY	RKSHEAEVLK_Phospho_STY	SKESVPEFPLSPPK_Phospho_STY	DLSLEEIQK_Unmodified	DLSLEEIQK_Phospho_STY
+            0	1.369	0.969	0.771	0.881	1.365	0.921	0.916
+            1.369	0	1.416	1.199	0.958	1.491	0.936	0.577
+            0.969	1.416	0	1.064	0.918	1.412	0.612	0.934
+            0.771	1.199	1.064	0	1.092	0.917	1.043	1.264
+            0.881	0.958	0.918	1.092	0	1.426	0.806	0.952
+            1.365	1.491	1.412	0.917	1.426	0	1.446	1.101
+            0.921	0.936	0.612	1.043	0.806	1.446	0	1.465
+            0.916	0.577	0.934	1.264	0.952	1.101	1.465	0
+            */
+            
+            for(int i=0;i<peps.size()-1;i++){   //outer loop                
                 String outerPep = peps.get(i);
+                headerRow[i]=outerPep;
                 double[] outerPepVals = pepQuantsAsDoubles.get(outerPep);
                  
-                for(int j=i+1;j<peps.size();j++){
+                for(int j=0;j<peps.size();j++){
                     String innerPep = peps.get(j);
                     double[] innerPepVals = pepQuantsAsDoubles.get(innerPep);
                     PearsonsCorrelation pCorr = new PearsonsCorrelation();
                     double corr = pCorr.correlation(outerPepVals, innerPepVals);
-                    System.out.print("Outer:" + outerPep + " inner: " + innerPep + " corr: " + corr + "   ");                     
+                    matrix[i][j] = ""+corr;                    
                  }
-                System.out.println();
-                
             }
             
+            protAccToDistanceMatrix.put(protAcc, matrix);
+            System.out.println(protAcc + "--> " + matrix.toString());
         }
     }
     
