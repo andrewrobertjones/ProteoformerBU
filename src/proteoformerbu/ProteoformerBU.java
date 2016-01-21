@@ -30,6 +30,7 @@ public class ProteoformerBU {
     private HashMap<String,String> pepToProtAcc = new HashMap();
     private HashMap<String,ArrayList<String>> protToPeps = new HashMap();
     private HashMap<String,String[][]> protAccToDistanceMatrix = new HashMap();
+    private String outputFolder = "E:\\Work\\ProteomicsSoftware\\PBU\\outputs\\";
     
     //Test comment in here
     
@@ -260,10 +261,10 @@ public class ProteoformerBU {
         
         
         for(String protAcc : protToPeps.keySet()){
-            System.out.print(protAcc + " ");
+            //System.out.print(protAcc + " ");
             ArrayList<String> peps = protToPeps.get(protAcc);
             
-            String[] headerRow = new String[peps.size()];
+            String headerRow = "";
             String[][] matrix = new String[peps.size()][peps.size()];
             
             /*
@@ -279,9 +280,9 @@ public class ProteoformerBU {
             0.916	0.577	0.934	1.264	0.952	1.101	1.465	0
             */
             
-            for(int i=0;i<peps.size()-1;i++){   //outer loop                
+            for(int i=0;i<peps.size();i++){   //outer loop                
                 String outerPep = peps.get(i);
-                headerRow[i]=outerPep;
+                headerRow+=outerPep+",";
                 double[] outerPepVals = pepQuantsAsDoubles.get(outerPep);
                  
                 for(int j=0;j<peps.size();j++){
@@ -289,15 +290,53 @@ public class ProteoformerBU {
                     double[] innerPepVals = pepQuantsAsDoubles.get(innerPep);
                     PearsonsCorrelation pCorr = new PearsonsCorrelation();
                     double corr = pCorr.correlation(outerPepVals, innerPepVals);
-                    matrix[i][j] = ""+corr;                    
+                    double distance = 1-corr;
+                    matrix[i][j] = ""+distance;                    
                  }
             }
             
+            
             protAccToDistanceMatrix.put(protAcc, matrix);
-            System.out.println(protAcc + "--> " + matrix.toString());
+            
+            headerRow = headerRow.substring(0,headerRow.length()-1); //Remove final comma
+            printMatrix(protAcc,headerRow,matrix);          
+            //System.out.println(protAcc + "--> " + matrix.toString());
         }
     }
     
-    
+    private void printMatrix(String protAcc, String header, String[][] matrix){
+        
+        protAcc = protAcc.replaceAll(";", "_").replaceAll(":", "_").replaceAll(",", "_");
+        
+        String outFile = outputFolder + protAcc + "_matrix.csv";
+        
+        try{
+            Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outFile), "utf-8")); 
+            writer.write(header+"\n");
+            
+            String matrixAsString = "";
+            for (int i = 0; i<matrix.length; i++){
+                for (int j = 0; j<matrix[i].length; j++){
+                   matrixAsString += matrix[i][j] + ",";
+                } 
+                matrixAsString = matrixAsString.substring(0, matrixAsString.length()-1);//Remove extra comma at end
+                matrixAsString += "\n";
+           }
+            
+            writer.write(matrixAsString+"\n");
+            writer.close();
+        }
+        catch(IOException e){
+            e.printStackTrace();
+        }
+
+        
+        
+    }
     
 }
+
+
+
+
+
