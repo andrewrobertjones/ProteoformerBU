@@ -35,7 +35,13 @@ public class ProteoformerBU {
     private ArrayList<String> matrixFilesToProcess = new ArrayList();
     private ArrayList<String> matrixRawFilesToProcess = new ArrayList();
     private int MAX_PROT_ACC_LENGTH = 60;   //cut-off for long lists of protein groups
-    //Test comment in here
+    
+    //private HashMap<String,Double> samePepUnMod1pCorrelations = new HashMap(); //all correlation values from raw data for unmodified versus 1 phospho of same peptide
+    private HashMap<String,Double> samePepUnModAnyPCorrelations = new HashMap(); //all correlation values from raw data for unmodified versus any phospho state of same peptide
+    private HashMap<String,Double> samePepAnyOtherPCorrelations = new HashMap(); //all correlation values from raw data for any two phospho states
+    private HashMap<String,Double> diffPepAnyPCorrelations = new HashMap(); //all correlations where peptide sequence is different and both contain at least 1 phospho
+    private HashMap<String,Double> samePepAnyOtherCorrs = new HashMap();
+    private HashMap<String,Double> diffPepAnyOtherCorrelations = new HashMap();
     
     
     /**
@@ -55,6 +61,8 @@ public class ProteoformerBU {
         
         pbu.createPeptideCorrelations();
         pbu.processAllMatricesForR();
+        
+        pbu.printAllCategoriesOfCorrelation();
         
     }
     
@@ -311,6 +319,48 @@ public class ProteoformerBU {
                     corr = pCorr.correlation(outerPepRawVals, innerPepRawVals);
                     distance = 1-corr;
                     matrixRaw[i][j] = ""+distance;
+                    /*
+                    private HashMap<String,Double> samePepUnModAnyPCorrelations = new HashMap(); //all correlation values from raw data for unmodified versus any phospho state of same peptide
+                    private HashMap<String,Double> samePepAnyOtherPCorrelations = new HashMap(); //all correlation values from raw data for any two phospho states
+                    private HashMap<String,Double> diffPepAnyPCorrelations = new HashMap(); //all correlations where peptide sequence is different
+    */
+                    //now decide which map to put correlation data (from raw - preferred option) into:
+                    if(i < j){//not interested in case where they are the same; no duplication of outer and inner ensured 
+                        String outerPepSeq = outerPep.split("__mods:")[0];
+                        String innerPepSeq = innerPep.split("__mods:")[0];
+
+                        String pepCorrString = outerPep+"_XXX_"+innerPep;
+                        
+                        //System.out.println("outer:" + outerPepSeq + " inner: " + innerPepSeq);
+                        if(outerPepSeq.equals(innerPepSeq)){
+                            //match sequence, now decide on phospho state
+                            if(outerPepSeq.equals("Unmodified")||innerPepSeq.equals("Unmodified")){
+                                samePepUnModAnyPCorrelations.put(pepCorrString, corr);
+                                System.out.print("1");
+                            }
+                            else if(outerPep.contains("Phospho")&&innerPep.contains("Phospho")){ //must be diff phospho forms
+                                samePepAnyOtherPCorrelations.put(pepCorrString, corr);
+                                System.out.print("2");
+                            }
+                            else{//discarded same peptide
+                                samePepAnyOtherCorrs.put(pepCorrString, corr);
+                                System.out.print("3");
+                            }
+                        }
+                        else{
+                            if(!outerPepSeq.contains(innerPepSeq) && !innerPepSeq.contains(outerPepSeq)){   //discard missed cleaves
+                                if(outerPep.contains("Phospho")&&innerPep.contains("Phospho")){ //must be diff phospho forms
+                                    diffPepAnyPCorrelations.put(pepCorrString, corr);
+                                    System.out.print("4");
+                                }
+                                else{
+                                    diffPepAnyOtherCorrelations.put(pepCorrString,corr);
+                                    System.out.print("5");
+                                }
+                            }
+                        }
+                    }
+                    
                  }
             }
             
@@ -364,6 +414,44 @@ public class ProteoformerBU {
         catch(IOException e){
             e.printStackTrace();
             outFile = "ERROR";
+        }
+    }
+    
+    /*
+    * Helper method to call all types of correlation values and print to different csv files
+    */
+    private void printAllCategoriesOfCorrelation(){
+        
+               /*
+        samePepUnModAnyPCorrelations = new HashMap(); //all correlation values from raw data for unmodified versus any phospho state of same peptide
+    private HashMap<String,Double> samePepAnyOtherPCorrelations = new HashMap(); //all correlation values from raw data for any two phospho states
+    private HashMap<String,Double> diffPepAnyPCorrelations = new HashMap(); //all correlations where peptide sequence is different and both contain at least 1 phospho
+    private HashMap<String,Double> samePepAnyOtherCorrs = new HashMap();
+    private HashMap<String,Double> diffPepAnyOtherCorrelations 
+        */
+        
+        printCategoriesOfCorrelation("samePepUnModAnyPCorrelations.csv",samePepUnModAnyPCorrelations);
+        printCategoriesOfCorrelation("samePepAnyOtherPCorrelations.csv",samePepAnyOtherPCorrelations);
+        printCategoriesOfCorrelation("diffPepAnyPCorrelations.csv",diffPepAnyPCorrelations);
+        printCategoriesOfCorrelation("samePepAnyOtherCorrs.csv",samePepAnyOtherCorrs);
+        printCategoriesOfCorrelation("diffPepAnyOtherCorrelations.csv",diffPepAnyOtherCorrelations);
+        
+    }
+    
+    
+    private void printCategoriesOfCorrelation(String outFile, HashMap<String,Double> corrSet){
+ 
+        try{
+            Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFolder + outFile), "utf-8"));
+            String values="";
+            for (String pepComparison : corrSet.keySet()){
+                values += pepComparison + "," + corrSet.get(pepComparison) + "\n";
+           }
+            writer.write(values);
+            writer.close();
+        }
+        catch(IOException e){
+            e.printStackTrace();
         }
     }
     
